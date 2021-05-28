@@ -126,10 +126,10 @@ def input_data_validator(func):
     def wrapper_input_data_validator(message):
         if message.content_type in ['location'] and func.__name__ == 'add_place_location':
             return func(message)
-        elif message.content_type in ['text'] and len(message.text) <= 64:
+        elif message.content_type in ['text'] and len(message.text) <= 30:
             return func(message)
         else:
-            reply_text = """Слишком много знаков (больше 64) или неверный тип данных, попробуйте еще раз"""
+            reply_text = """Слишком много знаков (больше 30) или неверный тип данных, попробуйте еще раз"""
             msg = bot.send_message(message.chat.id, reply_text)
             if func.__name__ == 'add_place_name':
                 bot.register_next_step_handler(msg, add_place_name)
@@ -178,7 +178,7 @@ def delete_button_keyboard(user, keyboard_entity, entity_name):
     """
     keyboard = types.InlineKeyboardMarkup()
     delete_button = types.InlineKeyboardButton(
-        text="Удалить", callback_data=keyboard_entity + '_delete' + '_' + entity_name)
+            text="Удалить", callback_data=keyboard_entity + '_delete' + '_' + entity_name)
 
     keyboard.add(delete_button)
     return keyboard
@@ -313,7 +313,7 @@ def add_task_name(message):
 def add_task_priority(message):
     try:
         chat_id = message.chat.id
-        priotity_number = int(message.text)
+        priotity_number = message.text
         user = User.check_if_user_exist(message, user_storage)
         user.add_task_priority(user.recent_added_task, priotity_number)
         user_storage.update_user_data(user)
@@ -385,6 +385,18 @@ def delete_all_current_user_locations(message):
         user_storage.update_user_data(user)
         msg = bot.send_message(
             message.chat.id, 'Все ранее сохраненные локации, удалены')
+    except Exception as e:
+        bot.reply_to(message, 'oooops, что-то пошло не так')
+
+@bot.message_handler(commands=['reset_tasks'])
+def delete_all_current_user_tasks(message):
+    try:
+        chat_id = message.chat.id
+        user = User.check_if_user_exist(message, user_storage)
+        user.remove_all_current_task()
+        user_storage.update_user_data(user)
+        msg = bot.send_message(
+            message.chat.id, 'Все ранее сохраненные задачи, удалены')
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
 
