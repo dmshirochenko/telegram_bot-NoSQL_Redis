@@ -197,12 +197,11 @@ def retrive_current_page(callback_query):
 def send_welcome(message):
     reply_text = """
     Команды бота:
-    /add_place – добавление нового места;
-    /list_places – отображение добавленных мест;
-    /reset_places - позволяет удалить все ваши добавленные локации;
-
-    /add_task
-    /list_tasks
+    /add_task - добавление новой задачи
+    /list_tasks - отображение добавленных задач
+    /add_place  - добавление нового места
+    /list_places - отображение добавленных мест
+    /reset_places - позволяет удалить все ваши добавленные места
     """
     # user creation
     User.check_if_user_exist(message, user_storage)
