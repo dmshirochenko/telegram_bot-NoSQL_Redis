@@ -45,6 +45,9 @@ class User:
         self.recent_added_task = task_name
         self.places_counter += 1
 
+    def add_task_details(self, task_name, details_text):
+        self.user_tasks[task_name]['details'] = details_text
+
     def add_task_priority(self, task_name, priority_number):
         self.user_tasks[task_name]['priority'] = priority_number
 
@@ -121,15 +124,19 @@ class User:
             return User.user_creation(retrived_data)
 
 # decorator for data
+
+
 def input_data_validator(func):
     @functools.wraps(func)
     def wrapper_input_data_validator(message):
         if message.content_type in ['location'] and func.__name__ == 'add_place_location':
             return func(message)
-        elif message.content_type in ['text'] and len(message.text) <= 30:
+        elif message.content_type in ['text'] and len(message.text) <= 24:
+            return func(message)
+        elif func.__name__ == 'add_task_details' and len(message.text) <= 256:
             return func(message)
         else:
-            reply_text = """Слишком много знаков (больше 30) или неверный тип данных, попробуйте еще раз"""
+            reply_text = """Слишком много знаков (больше 24) или неверный тип данных, попробуйте еще раз"""
             msg = bot.send_message(message.chat.id, reply_text)
             if func.__name__ == 'add_place_name':
                 bot.register_next_step_handler(msg, add_place_name)
@@ -137,6 +144,8 @@ def input_data_validator(func):
                 bot.register_next_step_handler(msg, add_place_location)
             elif func.__name__ == 'add_task_name':
                 bot.register_next_step_handler(msg, add_task_name)
+            elif func.__name__ == 'add_task_details':
+                bot.register_next_step_handler(msg, add_task_details)
             elif func.__name__ == 'add_task_priority':
                 bot.register_next_step_handler(msg, add_task_priority)
             elif func.__name__ == 'add_task_due_date':
@@ -172,16 +181,18 @@ def create_keyboard(user, keyboard_entity, page_number=1):
     keyboard.add(back_button, page_number, forward_button)
     return keyboard
 
+
 def delete_button_keyboard(user, keyboard_entity, entity_name):
     """
     Fucntion will return keyabord with delete button
     """
     keyboard = types.InlineKeyboardMarkup()
     delete_button = types.InlineKeyboardButton(
-            text="Удалить", callback_data=keyboard_entity + '_delete' + '_' + entity_name)
+        text="Удалить", callback_data=keyboard_entity + '_delete' + '_' + entity_name)
 
     keyboard.add(delete_button)
     return keyboard
+
 
 def retrive_current_page(callback_query):
     """
@@ -289,6 +300,7 @@ def task_add(message):
 
 # add places
 
+
 @input_data_validator
 def add_task_name(message):
     try:
@@ -298,16 +310,33 @@ def add_task_name(message):
         if user.check_if_task_name_exist(task_name):
             user.add_user_task(task_name)
             user_storage.update_user_data(user)
-            reply_text = "Пожалуйста, укажите приоритет задачи:"
+            reply_text = "Пожалуйста, укажите детали задачи:"
             msg = bot.send_message(message.chat.id, reply_text)
             # register next step
-            bot.register_next_step_handler(msg, add_task_priority)
+            bot.register_next_step_handler(msg, add_task_details)
         else:
             reply_text = "Такое название места уже есть, выбирете другое, пожалуйста."
             msg = bot.send_message(message.chat.id, reply_text)
             bot.register_next_step_handler(msg, add_task_name)
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
+
+
+@input_data_validator
+def add_task_details(message):
+    try:
+        chat_id = message.chat.id
+        task_detail_text = message.text
+        user = User.check_if_user_exist(message, user_storage)
+        user.add_task_details(user.recent_added_task, task_detail_text)
+        user_storage.update_user_data(user)
+        reply_text = "Пожалуйста, укажите приоритет задачи:"
+        msg = bot.send_message(message.chat.id, reply_text)
+        # register next step
+        bot.register_next_step_handler(msg, add_task_priority)
+    except Exception as e:
+        bot.reply_to(message, 'oooops, что-то пошло не так')
+
 
 @input_data_validator
 def add_task_priority(message):
@@ -323,6 +352,7 @@ def add_task_priority(message):
         bot.register_next_step_handler(msg, add_task_due_date)
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
+
 
 @input_data_validator
 def add_task_due_date(message):
@@ -388,6 +418,7 @@ def delete_all_current_user_locations(message):
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
 
+
 @bot.message_handler(commands=['reset_tasks'])
 def delete_all_current_user_tasks(message):
     try:
@@ -431,6 +462,7 @@ def callback_handler_back_forward_buttons(callback_query):
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
 
+
 @bot.callback_query_handler(func=lambda c: c.data.split('_')[1] in ['delete'])
 def callback_handler_delete_button(callback_query):
     try:
@@ -439,11 +471,11 @@ def callback_handler_delete_button(callback_query):
         user = User.check_if_user_exist(callback_query.message, user_storage)
         entity_type, command, entity_name = callback_query.data.split('_', 2)
 
-
         if entity_type == 'tasks':
             if user.delete_current_task(entity_name):
-                 user_storage.update_user_data(user)
-                 reply_text += 'Задача успешно "{0}" удалена'.format(entity_name)
+                user_storage.update_user_data(user)
+                reply_text += 'Задача успешно "{0}" удалена'.format(
+                    entity_name)
         elif entity_type == 'places':
             if user.delete_current_place(entity_name):
                 user_storage.update_user_data(user)
@@ -469,18 +501,21 @@ def callback_handler(callback_query):
 
         if entity_type == 'tasks':
             if entity_name in user.user_tasks:
-                reply_text = 'Детали задачи:\n'
+                reply_text = 'Подробно о задаче:\n'
                 reply_text += 'Название задачи: ' + \
                     str(entity_name) + '\n'
+                if 'details' in user.user_tasks[entity_name]:
+                    reply_text += "Детали задачи: " + \
+                        str(user.user_tasks[entity_name]['details']) + '\n'
                 if 'priority' in user.user_tasks[entity_name]:
                     reply_text += "Приоритет задачи: " + \
-                        str(user.user_tasks[entity_name]
-                            ['priority']) + '\n'
+                        str(user.user_tasks[entity_name]['priority']) + '\n'
                 if 'due_date' in user.user_tasks[entity_name]:
                     reply_text += "Желаемое время выполнения: " + \
                         str(user.user_tasks[entity_name]['due_date'])
                 keyboard = delete_button_keyboard(user, "tasks", entity_name)
-                bot.send_message(message.chat.id, reply_text, reply_markup=keyboard)
+                bot.send_message(message.chat.id, reply_text,
+                                 reply_markup=keyboard)
         elif entity_type == 'places':
             if entity_name in user.user_places:
                 reply_text = 'Детали места:\n'
@@ -490,7 +525,8 @@ def callback_handler(callback_query):
                 if 'address' in user.user_places[entity_name]:
                     reply_text += "Адрес: " + \
                         str(user.user_places[entity_name]['address'])
-                    bot.send_message(message.chat.id, reply_text, reply_markup=keyboard)
+                    bot.send_message(
+                        message.chat.id, reply_text, reply_markup=keyboard)
                 elif 'location' in user.user_places[entity_name]:
                     reply_text += 'Локация места: '
                     lat = user.user_places[entity_name
@@ -498,7 +534,8 @@ def callback_handler(callback_query):
                     lon = user.user_places[entity_name
                                            ]['location']['longitude']
                     bot.send_location(message.chat.id, lat, lon)
-                    bot.send_message(message.chat.id, reply_text, reply_markup=keyboard)
+                    bot.send_message(
+                        message.chat.id, reply_text, reply_markup=keyboard)
 
     except Exception as e:
         bot.reply_to(message, 'oooops, что-то пошло не так')
