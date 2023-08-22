@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 *.key
 *.webp
+.venv/
+.env.local
